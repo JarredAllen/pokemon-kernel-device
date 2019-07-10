@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 
 #define DEVICE_NAME "pokemon"
 #define SONG_LENGTH 87
@@ -100,6 +101,13 @@ char* messages[SONG_LENGTH] = {"I want to be the very best,\n",
                                "Gotta catch 'em all!\n",
                                "\n",
                                };
+
+int delays[SONG_LENGTH] = {7, 3, 3, 3, 2, 3, 2, 4, 2, 2, 3, 1, 0, 1, 2, 0, 1,
+                           1, 3, 1, 1, 1, 2, 2, 3, 3, 2, 2, 2, 3, 3, 3, 4, 3,
+                           2, 2, 3, 3, 3, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 2, 1,
+                           1, 3, 3, 3, 1, 1, 1, 1, 1, 2, 4, 5, 3, 4, 2, 2, 4,
+                           19, 1, 1, 2, 1, 1, 1, 3, 1, 2, 1, 1, 2, 4, 2, 2, 1,
+                           1, 1};
 int pos = 0;
 
 static struct file_operations fops = {
@@ -130,6 +138,7 @@ static void __exit rickroll_exit(void) {
 
 static int dev_open(struct inode *inodep, struct file *filep) {
     printk(KERN_INFO "Pokemon device opened.\n");
+    pos = 0;
     return 0;
 }
 
@@ -155,6 +164,7 @@ static ssize_t dev_read(struct file* filep, char* buffer,
         const char* message = messages[pos];
         int message_len = strlen(message);
 
+        msleep(delays[pos]*1000);
         errors = copy_to_user(buffer, message, message_len);
         pos++;
 
