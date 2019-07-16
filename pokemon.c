@@ -128,6 +128,11 @@ static struct class *myclass;
 static struct device *mydevice;
 static struct cdev mycdev;
 
+static int chmod_uevent(struct device *dev, struct kobj_uevent_env *env) {
+    add_uevent_var(env, "DEVMODE=%#o", 0444);
+    return 0;
+}
+
 static int __init pokemon_init(void) {
     major = register_chrdev(0, DEVICE_NAME, &fops);
     if (major < 0) {
@@ -140,6 +145,7 @@ static int __init pokemon_init(void) {
         printk(KERN_INFO "Pokemon failed at class_create.\n.");
         return -1;
     }
+    myclass->dev_uevent = chmod_uevent;
     cdev_init(&mycdev, &fops);
     if (cdev_add(&mycdev, major, 1) < 0) {
         device_destroy(myclass, major);
