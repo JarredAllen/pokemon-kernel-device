@@ -1,12 +1,18 @@
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/uaccess.h>
+#include <linux/cdev.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/uaccess.h>
 
 #define DEVICE_NAME "pokemon"
 #define SONG_LENGTH 87
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Jarred Allen");
+MODULE_DESCRIPTION("A device for printing the lyrics to the Pokemon theme song");
 
 static int dev_open(struct inode*, struct file*);
 static int dev_release(struct inode*, struct file*);
@@ -118,19 +124,45 @@ static struct file_operations fops = {
 };
 
 static int major;
+static struct class *myclass;
+static struct device *mydevice;
+static struct cdev mycdev;
 
-static int __init rickroll_init(void) {
+static int __init pokemon_init(void) {
     major = register_chrdev(0, DEVICE_NAME, &fops);
-
     if (major < 0) {
-        printk(KERN_INFO "Pokemon load failed.\n");
+        printk(KERN_INFO "Pokemon failed at register_chrdev.\n");
         return major;
+    }
+    myclass = class_create(THIS_MODULE, DEVICE_NAME);
+    if (myclass == NULL) {
+        unregister_chrdev(major, DEVICE_NAME);
+        printk(KERN_INFO "Pokemon failed at class_create.\n.");
+        return -1;
+    }
+    cdev_init(&mycdev, &fops);
+    if (cdev_add(&mycdev, major, 1) < 0) {
+        device_destroy(myclass, major);
+        class_destroy(myclass);
+        unregister_chrdev(major, DEVICE_NAME);
+        printk(KERN_INFO "Pokemon failed at cdev_add.\n");
+        return -1;
+    }
+    mydevice = device_create(myclass, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
+    if (mydevice == NULL) {
+        class_destroy(myclass);
+        unregister_chrdev(major, DEVICE_NAME);
+        printk(KERN_INFO "Pokemon failed at device_create.\n");
+        return -1;
     }
     printk(KERN_INFO "Pokemon module has been loaded: %d\n", major);
     return 0;
 }
 
-static void __exit rickroll_exit(void) {
+static void __exit pokemon_exit(void) {
+    device_destroy(myclass, MKDEV(major, 0));
+    cdev_del(&mycdev);
+    class_destroy(myclass);
     unregister_chrdev(major, DEVICE_NAME);
 
     printk(KERN_INFO "Pokemon module has been unloaded.\n");
@@ -172,6 +204,5 @@ static ssize_t dev_read(struct file* filep, char* buffer,
     }
 }
 
-module_init(rickroll_init);
-module_exit(rickroll_exit);
-
+module_init(pokemon_init);
+module_exit(pokemon_exit);
