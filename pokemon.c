@@ -13,6 +13,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jarred Allen");
 MODULE_DESCRIPTION("A device for printing the lyrics to the Pokemon theme song");
+MODULE_VERSION("0.1");
 
 static int dev_open(struct inode*, struct file*);
 static int dev_release(struct inode*, struct file*);
