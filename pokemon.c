@@ -5,6 +5,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/uaccess.h>
 
 #define DEVICE_NAME "pokemon"
@@ -115,7 +116,6 @@ int delays[SONG_LENGTH] = {7, 3, 3, 3, 2, 3, 2, 4, 2, 2, 3, 1, 0, 1, 2, 0, 1,
                            1, 3, 3, 3, 1, 1, 1, 1, 1, 2, 4, 5, 3, 4, 2, 2, 4,
                            19, 1, 1, 2, 1, 1, 1, 3, 1, 2, 1, 1, 2, 4, 2, 2, 1,
                            1, 1};
-int pos = 0;
 
 static struct file_operations fops = {
     .open = dev_open,
@@ -176,8 +176,13 @@ static void __exit pokemon_exit(void) {
 }
 
 static int dev_open(struct inode *inodep, struct file *filep) {
+    filep->private_data = (void*) kmalloc(sizeof(int), GFP_KERNEL);
+    if (!filep->private_data) {
+        printk(KERN_INFO "Error in allocating memory for pokemon device");
+        return -ENOMEM;
+    }
+    *((int*)filep->private_data) = 0;
     printk(KERN_INFO "Pokemon device opened.\n");
-    pos = 0;
     return 0;
 }
 
@@ -189,23 +194,24 @@ static ssize_t dev_write(struct file *filep, const char *buffer,
 
 static int dev_release(struct inode *inodep, struct file *filep) {
     printk(KERN_INFO "Pokemon device closed.\n");
+    kfree(filep->private_data);
     return 0;
 }
 
 static ssize_t dev_read(struct file* filep, char* buffer,
                     size_t len, loff_t* offset) {
-    if (pos == SONG_LENGTH) {
-        pos = 0;
+    int* pos = (int*) filep->private_data;
+    if (*pos == SONG_LENGTH) {
         return 0;
     }
     else {
         int errors = 0;
-        const char* message = messages[pos];
+        const char* message = messages[*pos];
         int message_len = strlen(message);
 
-        msleep(delays[pos]*1000);
+        msleep(delays[*pos]*1000);
         errors = copy_to_user(buffer, message, message_len);
-        pos++;
+        (*pos)++;
 
         return errors == 0 ? message_len : -EFAULT;
     }
